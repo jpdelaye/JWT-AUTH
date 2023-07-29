@@ -40,21 +40,38 @@ app.listen(port, () => {
 
 
 
-app.post("/auth",  (req, res) => {
+app.post("/auth", async (req, res) => {
      
-      // Get user input
-      const { username, password } = req.body;
-    
-      // Validate if user exist in our database
-      const user = {username : username}
-  
+  try {
+    // Get user input
+    const { email, password } = req.body;
+
+
+    // Validate user input
+    if (!(email && password)) {
+      return  res.status(400).send("All input is required");
+    }
+   
+   
+    let user = await findOne(email)
+   
+
+    if (user && user.password && (await bcrypt.compare(password, user.password))) {
+     
+
       const accessToken = generateAccessToken(user)
     
       res.header("x-access-token", accessToken)
       res.cookie('accessToken', accessToken);
       res.redirect("/api");
-     
-      
+   
+    }else{     
+      return res.status(400).send("Invalid Credentials");
+    }
+    } catch (err) {
+      console.log(err);
+    }
+
   });
   
   function generateAccessToken(user){ 
@@ -94,63 +111,3 @@ app.post("/auth",  (req, res) => {
   })
 
 
-
-  app.post("/newuser", async (req, res) => {
-
-    // Our register logic starts here
-    try {
-      // Get user input
-      const { email, floatingPassword } = req.body;
-  
-      // Validate user input
-      if (!(email && floatingPassword)) {
-        res.status(400).send("All input is required");
-      }
-  
-      // check if user already exist
-      // Validate if user exist in our database
-      const oldUser =  findOne({ email });
-  
-      if (oldUser) {
-        return res.status(409).send("User Already Exist. Please Login");
-      }
-  
-      //Encrypt user password
-      encryptedPassword = await bcrypt.hash(floatingPassword, 10);
-  
-      // Create user in our database
-     
-      var sql = "INSERT INTO users (id, username,password) VALUES ( null ,'"+email.toLowerCase()+"','"+encryptedPassword+"')";
-      con.query(sql, function (err, result) {
-        if (err) throw err;
-         console.log("user created");
-      });
-
-  
-      // Create token
-
-      const accessToken = generateAccessToken(email.toLowerCase())
-    
-      res.header("x-access-token", accessToken)
-      res.cookie('accessToken', accessToken);
-   
-    } catch (err) {
-      console.log(err);
-    }   
-    
-    res.redirect("/api");
-    // Our register logic ends here
-  });
-
-
-  function findOne(email){
- 
-    con.query("SELECT * FROM users WHERE username = '"+email+"'", function (err, result) {
-      if (err) throw err;
-
-      return result 
-
-    });
-  
- 
-}
